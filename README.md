@@ -1,6 +1,6 @@
-# CASA Paris-Saclay watcher
+# CASA watcher
 
-Detects new housing offers on https://casa.universite-paris-saclay.fr and pushes them to your Android phone with ntfy. Runs on GitHub Actions (free on public repos).
+Detects new housing offers and pushes them to your Android phone with ntfy. Runs on GitHub Actions (free on public repos).
 
 ## Setup
 1. Install the **ntfy** app (Google Play or F-Droid) and subscribe to a long random topic, e.g. `casa-amel-k8f3x9q2vz`.
