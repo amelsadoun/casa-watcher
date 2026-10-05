@@ -1,0 +1,64 @@
+name: CASA watcher
+
+on:
+  schedule:
+    # every 5 min, offset from :00 because GitHub's scheduler is busiest at the top of the hour
+    - cron: "3-58/5 * * * *"
+    # once a day: full scan of every page (catches anything the quick scans missed)
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      full_scan:
+        description: "Scan all pages"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # needed to commit state/seen.json
+
+concurrency:
+  group: casa-watch
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Run watcher
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          # optional repo *variables* (Settings > Secrets and variables > Actions > Variables)
+          CASA_URL: ${{ vars.CASA_URL }}
+          ASSUME_SORTED: ${{ vars.ASSUME_SORTED }}
+          MAX_PRICE: ${{ vars.MAX_PRICE }}
+          MIN_SURFACE: ${{ vars.MIN_SURFACE }}
+          DEPARTMENTS: ${{ vars.DEPARTMENTS }}
+          PAGES_PER_RUN: ${{ vars.PAGES_PER_RUN }}
+        run: |
+          if [[ "${{ github.event.schedule }}" == "17 3 * * *" || "${{ github.event.inputs.full_scan }}" == "true" ]]; then
+            python casa_watcher.py --full
+          else
+            python casa_watcher.py
+          fi
+
+      - name: Commit state (only if it changed)
+        run: |
+          if [[ -n "$(git status --porcelain state/)" ]]; then
+            git config user.name  "casa-watcher[bot]"
+            git config user.email "casa-watcher@users.noreply.github.com"
+            git add state/
+            git commit -m "chore: update seen listings [skip ci]"
+            git pull --rebase --autostash
+            git push
+          fi
